@@ -1,4 +1,5 @@
 import mongodb from "mongodb"
+import { v4 as uuidv4 } from 'uuid';
 const ObjectId = mongodb.ObjectID
 let users
 
@@ -15,6 +16,19 @@ export default class UsersDAO {
       )
     }
   }
+
+  static async popFund(fund,balance){
+    const result = await users.update(
+      {'user':'zuluagjp'},
+      { $pull:{ fondos:{ fund:fund}}}
+    )
+    const query = { user: 'zuluagjp'}
+    const updateDocumentHistorical = {
+      $push: {'historical':{id_transaction:uuidv4(),fund:fund,balance:balance,type:'cancel'}}
+    }
+    var historical = await users.updateOne(query,updateDocumentHistorical)
+  }
+
   static async updateUserBalance(balance){
     const query = { user: 'zuluagjp'}
     const updateDocument = {
@@ -22,10 +36,13 @@ export default class UsersDAO {
     }
     const result = await users.updateOne(query,updateDocument)
   }
-  static async pushFund(fund,balance){
+  static async pushFund(fund,balance,balance_prev){
     const query = { user: 'zuluagjp'}
     const updateDocument = {
       $push: {'fondos':{fund:fund,balance:balance}}
+    }
+    const updateDocumentHistorical = {
+      $push: {'historical':{id_transaction:uuidv4(),fund:fund,balance:balance,type:'suscribe'}}
     }
     if (fund && balance){
       if(
@@ -35,7 +52,14 @@ export default class UsersDAO {
         ((fund == 'FDO-ACCIONES') && (balance >=250000)) ||
         ((fund == 'FPV_BTG_PACTUAL_DINAMICA') && (balance >=100000)) 
         ){
-          var result = await users.updateOne(query,updateDocument)
+          if(balance_prev >= balance){
+            var result = await users.updateOne(query,updateDocument)
+            var historical = await users.updateOne(query,updateDocumentHistorical)
+          }
+          else{
+            var result = "fondos_insuficientes"
+          }
+          
       }
       else{
         var result = "insuficiente"
